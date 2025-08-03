@@ -1,8 +1,10 @@
 {
+  "input_file": "filelist_docs_details_5540_080325.txt",
+  "output_file": "Phase1_FileMapping.xlsx",
   "date_filter": {
     "enabled": false,
-    "start_date": "2025-01-01",
+    "start_date": "2023-01-01",
     "end_date": "2025-12-31"
   },
-  "destination_root": "C:\\Users\\scottuser\\Documents\\Projects"
+  "destination_root": "C:\\Users\\scottuser\\Documents"
 }
