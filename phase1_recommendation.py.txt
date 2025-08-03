@@ -1,0 +1,94 @@
+import os
+import re
+import json
+import pandas as pd
+from datetime import datetime
+
+# ===============================
+# Load Config
+# ===============================
+with open("config.json", "r") as cfg_file:
+    config = json.load(cfg_file)
+
+INPUT_FILE = config.get("input_file", "file_list.txt")  # Input text file
+OUTPUT_FILE = config.get("output_file", "Phase1_FileMapping.xlsx")
+
+# ===============================
+# Preprocess & Parse
+# ===============================
+def preprocess_and_parse(input_file):
+    combined_lines = []
+    buffer = ""
+
+    # Step 1: Merge wrapped lines
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.rstrip("\n")
+
+            # New record starts with a quote
+            if line.startswith('"'):
+                if buffer:
+                    combined_lines.append(buffer)
+                buffer = line
+            else:
+                # Append continuation line
+                buffer += " " + line
+
+        # Append last buffered record
+        if buffer:
+            combined_lines.append(buffer)
+
+    # Step 2: Parse merged lines
+    parsed_records = []
+    pattern = r'^"(.+?)"\s+(\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M)$'
+
+    for cline in combined_lines:
+        match = re.match(pattern, cline)
+        if match:
+            file_path_raw, datetime_str = match.groups()
+
+            # Convert timestamp to desired format
+            try:
+                dt_obj = datetime.strptime(datetime_str, "%m/%d/%Y %I:%M:%S %p")
+                formatted_ts = dt_obj.strftime("%m_%d_%Y_%H_%M_%S_%p")
+            except ValueError:
+                formatted_ts = datetime_str  # Fallback to raw string if parse fails
+
+            # Extract parent directory (lowermost folder) and file name
+            directory, file_name = os.path.split(file_path_raw)
+
+            parsed_records.append({
+                "full_path": file_path_raw,
+                "directory": directory,
+                "file_name": file_name,
+                "timestamp": formatted_ts
+            })
+        else:
+            # Log unparsable lines for review
+            with open("parsing_errors.log", "a", encoding="utf-8") as logf:
+                logf.write(f"Failed to parse: {cline}\n")
+
+    return parsed_records
+
+# ===============================
+# Main Execution
+# ===============================
+def main():
+    # Parse records
+    records = preprocess_and_parse(INPUT_FILE)
+
+    # Convert to DataFrame
+    df = pd.DataFrame(records)
+
+    if df.empty:
+        print("No valid records parsed. Check parsing_errors.log for issues.")
+        return
+
+    # Export to Excel
+    df.to_excel(OUTPUT_FILE, index=False)
+
+    print(f"Total files processed: {len(df)}")
+    print(f"Output saved to: {OUTPUT_FILE}")
+
+if __name__ == "__main__":
+    main()
